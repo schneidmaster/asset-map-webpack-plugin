@@ -1,4 +1,3 @@
-import fs from 'fs';
 import path from 'path';
 import url from 'url';
 import RequestShortener from 'webpack/lib/RequestShortener';
@@ -66,7 +65,7 @@ export default class AssetMapPlugin {
   }
 
   apply(compiler) {
-    compiler.plugin('done', ({ compilation }) => {
+    compiler.plugin('emit', (compilation, done) => {
       var publicPath = compilation.outputOptions.publicPath;
       var requestShortener = new RequestShortener(this.relativeTo || path.dirname(this.outputFile));
 
@@ -74,8 +73,18 @@ export default class AssetMapPlugin {
       var [chunksEmitted, chunks] = ExtractChunks(compilation.chunks, publicPath);
 
       if (assetsEmitted || chunksEmitted) {
-        fs.writeFileSync(this.outputFile, JSON.stringify({ assets, chunks }, null, 2));
+        var out = JSON.stringify({ assets, chunks }, null, 2);
+        var assetName = this.outputFile.split(compilation.outputOptions.publicPath).pop();
+        compilation.assets[assetName] = {
+          source: () => {
+            return out;
+          },
+          size: () => {
+            return Buffer.byteLength(out, 'utf8');
+          }
+        };
       }
+      done();
     });
   }
 }
